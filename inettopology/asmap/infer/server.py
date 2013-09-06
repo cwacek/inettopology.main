@@ -6,65 +6,21 @@ import os
 import time
 import signal
 
+import logging
+logger = logging.getLogger(__name__)
+
 from inettopology import SilentExit
 import inettopology.asmap.util as utils
 import inettopology.asmap.util.structures as redis_structures
 
+import gevent
+import gevent.socket
+from gevent import monkey
+monkey.patch_all()
+
 CHECK_VF_SCRIPT = None
 wait_queue = None
 GREENLETS = dict()
-
-
-def add_cmdline_args(subp, parents):
-  """Add commandline arguments for this module
-  to the subparser :subp:.
-
-  Include :parents: as parents of the parser.
-
-  :subp: argparse.SubParser
-  :parents: list of argparse.Parsers
-  """
-
-  infer_parser = subp.add_parser("infer",
-                                 help="Infer AS level paths",
-                                 parents=parents)
-  infer_parser.add_argument("--log", help="where to log activity to")
-  infer_parser.add_argument("--tags",
-                            help="The RIB tags to include above the base",
-                            nargs='+', required=True)
-  infer_parser.add_argument("--inferrer_count", "-c",
-                            help="The number of inferrers per tag",
-                            default=1, type=int)
-  infer_parser.add_argument("--inferrer_bin",
-                            help="The binary to use for inference.",
-                            default="./as_infer")
-  infer_parser.add_argument("--include-ixps",
-                            help="Include notes about IXPs from this datafile",
-                            metavar="IXP_DATAFILE")
-  infer_parser.add_argument("--translate-ips",
-                            help="Include the capability to translate IPs "
-                                 "using a MaxMind GeoIP database",
-                            metavar="GEOIP_DB")
-  existing_elems = infer_parser.add_mutually_exclusive_group()
-  existing_elems.add_argument("--force",
-                              help="Leave existing elements in the queue",
-                              action="store_true")
-  existing_elems.add_argument("--reset",
-                              help="Clear the queue before starting",
-                              action="store_true")
-  infer_parser.set_defaults(func=_gao_inference_helper)
-
-
-def _gao_inference_helper(args):
-  """ A helper to allow not importing gao_inference unless
-  it's being run. gao_inference uses gevent, and that means
-  no PyPy"""
-  import gevent
-  import gevent.socket
-  from gevent import monkey
-  monkey.patch_all()
-
-  start_inference_service(args)
 
 
 class SocketTimeout(Exception):
@@ -217,6 +173,7 @@ def start_inference_service(args):
   """
   Start up an inference service for AS Paths.
   """
+  import gevent
 
   redis_info = redis_structures.ConnectionInfo(**args.redis)
   log_rinfo = redis_structures.ConnectionInfo(**args.redis)
@@ -312,20 +269,20 @@ def start_inference_service(args):
       #raise
 
   except OSError as e:
-    log.error("Error launching {1}: {0}\n"
-              .format(e, args.inferrer_bin))
+    logger.error("Error launching {1}: {0}"
+                 .format(e, args.inferrer_bin))
 
   except (KeyboardInterrupt, bdb.BdbQuit) as e:
     pass
   except (Exception) as e:
-    log.error("Error: {0}\n".format(e))
+    logger.error("Error: {0}".format(e))
   finally:
     for inferrer_list in tag_inferrers.itervalues():
       for inferrer in inferrer_list:
         inferrer.terminate()
     logsink.shutdown()
     if logsink.is_alive():
-      sys.stderr.write("Giving logsink 5 seconds to exit\n")
+      logger.info("Giving logsink 5 seconds to exit")
       time.sleep(5)
     os.kill(logsink.pid, signal.SIGKILL)
 
