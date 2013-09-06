@@ -1,0 +1,33 @@
+package "as_infer"
+version "0.0.1"
+purpose "On the fly AS path inferfence"
+usage "as_infer [-h <redis_host>] [-p <redis_port>] -r <ribtag> -q <procqueue_name>"
+description "A tool to perform AS path inference. Designed to do it on the fly."
+
+option "ribtag" r 
+       "The tag for the RIB data this instance should consider"
+       string
+       required
+
+option "redis-host" h
+       "The hostname of the Redis backend"
+       string
+       default="localhost"
+       optional
+
+option "redis-port" p
+       "The port to connect to on the Redis backend"
+       int 
+       default="6379"
+       optional
+
+option "procqueue" q
+       "The name of the processing queue to connect to"
+       string
+       required
+
+option "dump_graph" -
+       "Dump the AS graph for this tag rather than running a server"
+       flag
+       off
+

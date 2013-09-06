@@ -1,0 +1,28 @@
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# # Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Object files
+*.o
+*.ko
+
+# Libraries
+*.lib
+*.a
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+Makefile.in
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+install_manifest.txt
