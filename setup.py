@@ -11,7 +11,8 @@ setup(
 
     install_requires=[
                       "redis",
-                      "argparse"
+                      "argparse",
+                      'importlib'
                      ],
 
     entry_points={
