@@ -229,10 +229,11 @@ def mk_graph(args):
 
   with open(args.outfile, "w") as fout:
     fout.write("[")
+    num_edges = RelGraph.number_of_edges()
     for i, (as1, as2, attrs) in enumerate(RelGraph.edges_iter(data=True), 1):
       entry = {'as1': as1, 'as2': as2, 'relation': attrs['rel']}
       fout.write(json.dumps(entry))
-      if i != RelGraph.number_of_edges():
+      if i != num_edges:
         fout.write(", \n")
     fout.write("]")
 
