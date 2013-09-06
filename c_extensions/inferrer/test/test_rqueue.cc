@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <stdio.h>
 #include "../structures.h"
 #include "../infer.h"
 
@@ -82,18 +83,18 @@ TEST_F(RQueueTest, DeleteRemovesListenerKey)
 {
   ASSERT_REDIS(c_);
 
-  RQueue *rq = new RQueue(c_,"sladfkjew",false);
+  RQueue *rq = new RQueue(c_, "sladfkjew", true);
   char buf[64];
   strncpy(buf,rq->listener_key,64);
   r = rCommand(c_,"GET %s",buf);
   int res = atoi(r->str);
-  ASSERT_EQ(1,res);
+  ASSERT_EQ(1, res);
   freeReplyObject(r);
 
   delete rq;
   r = rCommand(c_,"GET %s", buf);
   res = atoi(r->str);
-  ASSERT_EQ(1,res);
+  ASSERT_EQ(0,res);
   freeReplyObject(r);
 }
 

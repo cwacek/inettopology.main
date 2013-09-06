@@ -1,6 +1,6 @@
 #include "structures.h"
 
-RQueue::RQueue(redisContext *c, string key,bool am_listener)
+RQueue::RQueue(redisContext *c, string key, bool am_listener)
 {
   this->key = key;
   this->c = c;
