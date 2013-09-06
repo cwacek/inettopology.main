@@ -147,7 +147,7 @@ def mk_graph(args):
           logger.warn("Replacing '{0}' rel of {1} - >{2} with 'p2c'"
                     .format(existing, as1, as2))
         except KeyError:
-          pa
+          pass
         RelGraph.add_edge(as1, as2, {'rel': 'p2c'})
         try:
           RelGraph[as2][as1]['rel'] = 'c2p'
@@ -171,7 +171,6 @@ def mk_graph(args):
           RelGraph.add_edge(as2, as1, {'rel': 'p2c'})
         stats['c2p'] += 1
       else:
-        import pdb; pdb.set_trace()
         logger.warn("{0} - >{1} Didn't match any of the heuristics???!?!"
                     .format(as1, as2))
 
@@ -190,7 +189,6 @@ def mk_graph(args):
       notpeering.add((path[i], path[i + 1]))
 
   try:
-
     if (prov_idx > 0
         and RelGraph[path[prov_idx - 1]][path[prov_idx]]['rel'] != 'sibling'
         and RelGraph[path[prov_idx]][path[prov_idx + 1]]['rel'] != 'sibling'):
@@ -231,10 +229,10 @@ def mk_graph(args):
 
   with open(args.outfile, "w") as fout:
     fout.write("[")
-    for i, (as1, as2, attrs) in enumerate(RelGraph.edges_iter(data=True)):
+    for i, (as1, as2, attrs) in enumerate(RelGraph.edges_iter(data=True), 1):
       entry = {'as1': as1, 'as2': as2, 'relation': attrs['rel']}
       fout.write(json.dumps(entry))
-      if i != len(RelGraph.edges):
+      if i != RelGraph.number_of_edges():
         fout.write(", \n")
     fout.write("]")
 
