@@ -1,14 +1,15 @@
 import itertools
 import os
 import re
+import json
 import redis
-import redis_structures
 
 import logging
 log = logging.getLogger(__name__)
 
-import inettopology.utils as utils
-
+from inettopology.asmap import DBKEYS
+import inettopology.asmap.util as utils
+import inettopology.asmap.util.structures as redis_structures
 
 load_help = """
 Load data from datafiles into the database.
@@ -18,7 +19,7 @@ and each supports a few different options:
 """
 
 aslinks_help = """
-aslinks - CAIDA AS Links datafiles
+CAIDA AS Links datafiles
 
   --include-indirect    Include links CAIDA has flagged as
                         'indirect'.
@@ -26,13 +27,23 @@ aslinks - CAIDA AS Links datafiles
 """
 
 ribfile_help = """
-ribfile - Routeviews RIB files in text format as
+Routeviews RIB files in text format as
           output by 'bgpdump -M'
 
   --tag                 (required) A tag for the routes parsed
                         from this RIB file. Inference is performed
                         against a specific tag, so this is important.
 
+"""
+
+asrel_help = """
+AS Relationships from various sources
+
+AS Relationship Information is established from three datasets
+all of which which are optional. First data from Gao inference is
+applied, then CAIDA data is overlaid, making corrections as necessary.
+Finally, sibling information parsed from WHOIS data is applied, making
+corrections again.
 """
 
 
@@ -43,7 +54,7 @@ def add_cmdline_args(subp, parents):
   Include :parents: as parents of the parser """
 
   read_parser = subp.add_parser("load",
-                                help=load_help + aslinks_help + ribfile_help,
+                                help=load_help,
                                 parents=parents)
   subsub = read_parser.add_subparsers()
   aslinks = subsub.add_parser('aslinks', help=ribfile_help)
@@ -62,6 +73,18 @@ def add_cmdline_args(subp, parents):
                        help="RIB data tag")
   ribfile.set_defaults(func=_load_data, datatype='ribfile')
 
+  asrel_parser = subsub.add_parser("asrels", help=asrel_help,
+                                   parents=parents)
+  asrel_parser.add_argument("--gao",
+                            help="Output file of GAO relationship inference",
+                            required=True)
+  asrel_parser.add_argument("--caida", help="CAIDA AS Relationship Datafile")
+  asrel_parser.add_argument("--siblings", help="WHOIS sibling match dataset")
+  asrel_parser.add_argument("--conflict-log",
+                            help="A file to log all conflicts to")
+
+  asrel_parser.set_defaults(func=_load_data, datatype='asrel')
+
 
 def _load_data(args):
   r = redis.StrictRedis(**args.redis)
@@ -73,16 +96,25 @@ def _load_data(args):
     read_aslinks(r, args.aslinks, args.include_indirect)
   elif args.datatype == 'ribfile':
     parse_routes(r, args.ribfile, args.tag)
+  elif args.datatype == 'asrel':
+    load_asrels(r, args.gao, args.caida, args.siblings,
+                conflict_log=args.conflict_log)
 
 
 def read_aslinks(r, filename, include_indirect):
+  """ aslinks - CAIDA AS Links datafiles
+
+    --include-indirect    Include links CAIDA has flagged as
+                          'indirect'.
+
+  """
   try:
     fin = open(filename)
   except IOError as e:
     raise Exception("Failed to open file: {0}".format(e))
 
-  as_set = redis_structures.Collection(r, BASE_ASES)
-  as_links = redis_structures.KeyedCollection(r, BASE_LINKS)
+  as_set = redis_structures.Collection(r, DB_KEYS.BASE_ASES)
+  as_links = redis_structures.KeyedCollection(r, DB_KEYS.BASE_LINKS)
 
   for line in fin:
     fields = line.split()
@@ -127,9 +159,9 @@ def parse_routes(r, ribfile, tag):
 
   tag_set = redis_structures.Collection(r, "tags")
 
-  base_as_set = redis_structures.Collection(r, BASE_ASES)
+  base_as_set = redis_structures.Collection(r, DB_KEYS.BASE_ASES)
   as_set = redis_structures.Collection(r, '{0}_ases'.format(tag))
-  as_links = redis_structures.KeyedCollection(r, TAG_LINKS(tag))
+  as_links = redis_structures.KeyedCollection(r, DB_KEYS.TAG_LINKS(tag))
   only_in_rib = dict()
 
   linectr = 0
@@ -176,3 +208,153 @@ def parse_routes(r, ribfile, tag):
   tag_set.add([tag])
   fin.close()
 
+
+def load_asrels(r, gaofile, caidafile=None, siblingsfile=None, **kwargs):
+  """
+  Read AS Relationship Information
+
+  AS Relationship Information is established from three datasets
+  all of which which are optional. First data from Gao inference is
+  applied, then CAIDA data is overlaid, making corrections as necessary.
+  Finally, sibling information parsed from WHOIS data is applied, making
+  corrections again.
+  """
+  as_rel_keys = redis_structures.Collection(r, DBKEYS.AS_REL_KEYS)
+  conflicts = []
+
+  if as_rel_keys.exists():
+    log.warn("There appear to be existing relationships in the database.")
+    if not utils.confirm("Do you want to continue anyway?")[0]:
+      return 1
+
+# Start with Gao inference results
+  log.info("Processing relationships from Gao")
+  try:
+    gao_data = json.load(open(gaofile))
+  except Exception as e:
+    log.warn("Failed to load gao file. [{0}]".format(e))
+    return 1
+
+  for rel in gao_data:
+    as1 = rel['as1']
+    as2 = rel['as2']
+    relation = rel['relation']
+
+    if relation == 'p2c':
+      brelation = 'c2p'
+    elif relation == 'c2p':
+      brelation = 'p2c'
+    elif relation == 'sibling':
+      brelation = relation
+    elif relation == 'p2p':
+      brelation = relation
+
+    existing = r.hget(DBKEYS.AS_REL(as1), as2)
+    if existing and existing != relation:
+      conflicts.append({'as1': as1, 'as2': as2,
+                        'old': existing, 'new': relation, 'source': 'gao'})
+
+    r.hset(DBKEYS.AS_REL(as1), as2, relation)
+
+    existing = r.hget(DBKEYS.AS_REL(as2), as1)
+    if existing and existing != brelation:
+      conflicts.append({'as1': as2, 'as2': as1,
+                        'old': existing, 'new': brelation, 'source': 'gao'})
+
+    r.hset(DBKEYS.AS_REL(as2), as1, brelation)
+
+    as_rel_keys.add([DBKEYS.AS_REL(as1), DBKEYS.AS_REL(as2)])
+  log.info("Processed {0} relationships".format(len(gao_data)))
+
+  # Overwrite with CAIDA matches
+  if caidafile:
+    conflicts.extend(_read_caida_asrels(r, caidafile))
+
+  log.info("Processing Sibling data")
+  if siblingsfile:
+    try:
+      sibling_data = json.load(open(siblingsfile))
+    except Exception as e:
+      log.warn("Failed to load sibling file. [{0}]".format(e))
+      return 1
+
+    for sib in sibling_data:
+
+      as1 = sib['as1']['asn'].upper().strip("AS")
+      as2 = sib['as2']['asn'].upper().strip("AS")
+      relation = 'sibling'
+      brelation = 'sibling'
+
+      existing = r.hget(DBKEYS.AS_REL(as1), as2)
+      if existing and existing != relation:
+        conflicts.append({'as1': as1, 'as2': as2,
+                          'old': existing, 'new': relation, 'source': 'WHOIS'})
+
+      r.hset(DBKEYS.AS_REL(as1), as2, relation)
+
+      existing = r.hget(DBKEYS.AS_REL(as2), as1)
+      if existing and existing != brelation:
+        conflicts.append({'as1': as2, 'as2': as1,
+                          'old': existing, 'new': brelation,
+                          'source': 'WHOIS'})
+
+      r.hset(DBKEYS.AS_REL(as2), as1, brelation)
+
+      as_rel_keys.add([DBKEYS.AS_REL(as1), DBKEYS.AS_REL(as2)])
+    log.info("Processed {0} sibling relationships".format(len(sibling_data)))
+
+  if kwargs['conflict_log']:
+    with open(kwargs['conflict_log'], "w") as conflict_out:
+      json.dump(conflicts, conflict_out)
+  else:
+    log.info("Stored AS relationships with {0} conflicts"
+             .format(len(conflicts)))
+
+
+def _read_caida_asrels(r, filename):
+  """
+  Read in AS relationship data from CAIDA datafile
+  """
+  try:
+    fin = open(filename)
+  except IOError as e:
+    raise Exception("Failed to open file: {0}".format(e))
+  log.info("Processing CAIDA relationships")
+
+  conflicts = []
+  as_rel_keys = redis_structures.Collection(r, DBKEYS.AS_REL_KEYS)
+  cnt = 0
+  for line in fin:
+    if line[0] == "#":
+      continue
+    as1, as2, rel = line.strip().split("|")
+    cnt += 1
+
+    if rel == "0":
+      frelation = 'p2p'
+      brelation = 'p2p'
+    elif rel == '2':
+      frelation = 'sibling'
+      brelation = 'sibling'
+    else:
+      frelation = 'p2c'
+      brelation = 'c2p'
+
+    existing = r.hget(DBKEYS.AS_REL(as1), as2)
+    if existing and existing != frelation:
+      conflicts.append({'as1': as1, 'as2': as2,
+                        'old': existing, 'new': frelation, 'source': 'caida'})
+
+    r.hset(DBKEYS.AS_REL(as1), as2, frelation)
+
+    existing = r.hget(DBKEYS.AS_REL(as2), as1)
+    if existing and existing != brelation:
+      conflicts.append({'as1': as2, 'as2': as1,
+                        'old': existing, 'new': brelation, 'source': 'caida'})
+
+    r.hset(DBKEYS.AS_REL(as2), as1, brelation)
+
+    as_rel_keys.add([DBKEYS.AS_REL(as1), DBKEYS.AS_REL(as2)])
+
+  log.info("Processed {0} relationships from CAIDA".format(cnt))
+  return conflicts

@@ -16,7 +16,7 @@ setup(
 
     entry_points={
                   'console_scripts': [
-                    'inettopology = inettopology.asmap:cmdline'
+                    'inettopology = inettopology:run'
                   ]
     },
 
