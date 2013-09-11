@@ -113,8 +113,8 @@ def read_aslinks(r, filename, include_indirect):
   except IOError as e:
     raise Exception("Failed to open file: {0}".format(e))
 
-  as_set = redis_structures.Collection(r, DB_KEYS.BASE_ASES)
-  as_links = redis_structures.KeyedCollection(r, DB_KEYS.BASE_LINKS)
+  as_set = redis_structures.Collection(r, DBKEYS.BASE_ASES)
+  as_links = redis_structures.KeyedCollection(r, DBKEYS.BASE_LINKS)
 
   for line in fin:
     fields = line.split()
@@ -159,9 +159,9 @@ def parse_routes(r, ribfile, tag):
 
   tag_set = redis_structures.Collection(r, "tags")
 
-  base_as_set = redis_structures.Collection(r, DB_KEYS.BASE_ASES)
+  base_as_set = redis_structures.Collection(r, DBKEYS.BASE_ASES)
   as_set = redis_structures.Collection(r, '{0}_ases'.format(tag))
-  as_links = redis_structures.KeyedCollection(r, DB_KEYS.TAG_LINKS(tag))
+  as_links = redis_structures.KeyedCollection(r, DBKEYS.TAG_LINKS(tag))
   only_in_rib = dict()
 
   linectr = 0

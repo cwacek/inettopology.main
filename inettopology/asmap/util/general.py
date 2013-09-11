@@ -20,14 +20,14 @@ def uniqify(seq, key=None, stopat=lambda x: False):
   """
   # order preserving
   if key is None:
-    def idfun(x):
+    def key(x):
       return x
   seen = {}
   result = []
   for item in seq:
     if stopat(item):
       break
-    marker = idfun(item)
+    marker = key(item)
     # in old Python versions:
     # if seen.has_key(marker)
     # but in new ones:
