@@ -57,7 +57,7 @@ def add_cmdline_args(subp, parents):
                                 help=load_help,
                                 parents=parents)
   subsub = read_parser.add_subparsers()
-  aslinks = subsub.add_parser('aslinks', help=ribfile_help)
+  aslinks = subsub.add_parser('aslinks', help=aslinks_help)
   aslinks.add_argument('aslinks', help='AS links datafile', metavar='PATH')
   aslinks.add_argument("--include-indirect",
                        help="Include indirect AS links",
