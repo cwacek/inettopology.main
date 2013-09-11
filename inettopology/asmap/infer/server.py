@@ -242,6 +242,10 @@ def start_inference_service(args):
         except KeyError:
           tag_inferrers[tag] = [inf]
 
+    if not any(tag_inferrers.itervalues()):
+      log.error("No inferrers started successfully")
+      raise SilentExit()
+
     server = InferenceGreenletServer(('0.0.0.0', 9323), greenlet_handle)
     #server = InferenceServer(('0.0.0.0', 9323), RequestHelper)
     server.r = r
@@ -294,13 +298,13 @@ def _start_inferrer(infer_proc, ribtag):
 
   cmd = [infer_proc, "-r", ribtag,
          "--procqueue", "{0}_procqueue".format(ribtag)]
-  sys.stderr.write("Starting inferrer as '{0}'\n".format(" ".join(cmd)))
+  logger.info("Starting inferrer as '{0}'\n".format(" ".join(cmd)))
   pid = subprocess.Popen(cmd,
                          stderr=open("{0}_inferrer.log".format(ribtag), 'w'))
 
   if pid.poll() is not None:
-    sys.stderr.write("Inferrer for {0} failed. stderr: '{0}'"
-                     .format(ribtag, pid.stderr.read()))
+    logger.warn("Inferrer for {0} failed. stderr: '{0}'"
+                .format(ribtag, pid.stderr.read()))
     return None
 
   return pid
