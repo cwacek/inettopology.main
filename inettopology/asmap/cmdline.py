@@ -18,7 +18,7 @@ def run():
                      help="Redis connection info for router server "
                           "(default: 'localhost:6379:0')")
 
-  gen_p.add_argument("-v", "--verbose", action='count')
+  gen_p.add_argument("-v", "--verbose", action='count', default=0)
 
   # Loading data
   subp = parser.add_subparsers(help="Commands")
@@ -50,8 +50,10 @@ def run():
   args = parser.parse_args()
   if args.verbose > 0:
     logging.basicConfig(level=logging.DEBUG)
+    logging.getLogger().setLevel(logging.DEBUG)
   else:
     logging.basicConfig(level=logging.INFO)
+    logging.getLogger().setLevel(logging.INFO)
 
   args.func(args)
 
