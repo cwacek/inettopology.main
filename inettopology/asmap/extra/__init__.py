@@ -19,6 +19,13 @@ def load_cmdline_args(subp, parents=[]):
     logger.debug("Found submodule {0} (is a package: {1})"
                  .format(modname, ispkg))
 
-    mod = importlib.import_module(modname, 'inettopology.asmap.extra')
-    if callable(mod.__argparse__):
-      mod.__argparse__(extra_sub, parents)
+    try:
+      mod = importlib.import_module(modname, 'inettopology.asmap.extra')
+
+    except ImportError as e:
+      logger .warn("Unable to import '{0}'. [Error: {1}]"
+                   .format(modname, e.message))
+
+    else:
+      if callable(mod.__argparse__):
+        mod.__argparse__(extra_sub, parents)
