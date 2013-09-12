@@ -424,3 +424,35 @@ class LogSink(multiprocessing.Process):
           return
       result = None
 
+
+class RedisMutex:
+    def __init__(self, redis, name):
+        self._r = redis
+        self._name = name
+        if self._r.getset('mutex:%s:init' % self._name, 1) != '1':
+            self._r.rpush("mutex:%s" % self._name, 1)
+            self._r.ltrim("mutex:%s" % self._name, 0, 0)
+        self.locked_by_us = False
+
+    def owned(self):
+      return self.locked_by_us
+
+    def acquire(self, silent=False):
+        self._r.brpop('mutex:%s' % self._name, timeout=0)
+        self.locked_by_us = True
+
+    def release(self):
+        self._r.rpush('mutex:%s' % self._name, 1)
+        self.locked_by_us = False
+
+    def is_locked(self):
+        if self._r.llen('mutex:%s' % self._name) == 0:
+            return True
+        return False
+
+    def wait(self):
+        self.acquire(silent=True)
+        self.release()
+
+    def backend(self):
+        return self._r
