@@ -1,1 +1,1 @@
-from general import pairwise, uniqify, confirm
+from general import pairwise, uniqify, confirm, triwise
