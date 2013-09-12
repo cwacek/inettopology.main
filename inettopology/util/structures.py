@@ -282,9 +282,10 @@ class ProcessingQueue(object):
   def num_processed(self):
     return self._redis.scard(self._set)
 
+
 class ConnectionInfo(object):
 
-  def __init__(self,**kwargs):
+  def __init__(self, **kwargs):
     self.port = kwargs['port'] if 'port' in kwargs else '6379'
     self.host = kwargs['host'] if 'host' in kwargs else 'localhost'
     self.db = kwargs['db'] if 'db' in kwargs else 'db'
