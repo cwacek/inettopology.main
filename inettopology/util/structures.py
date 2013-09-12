@@ -295,13 +295,14 @@ class ConnectionInfo(object):
     else:
       self.socket_type = socket
 
-    #self.pool = redis.ConnectionPool(host=self.host,
-                                     #port=self.port,
-                                     #db=self.db)
+    self.pool = redis.ConnectionPool(host=self.host,
+                                     port=self.port,
+                                     db=self.db)
 
-  def instantiate(self,async=True):
-    r = redis.Redis()
+  def instantiate(self, async=True):
+    r = redis.Redis(connection_pool=self.pool)
     return r
+
 
 class Logger(object):
   """
