@@ -1,4 +1,5 @@
 import itertools
+import time
 
 
 def pairwise(iterable):
@@ -68,3 +69,54 @@ def confirm(prompt=None):
       return (False, False)
     if ans == 'a' or ans == 'A':
       return (True, True)
+
+
+class ProgressTimer:
+    def __init__(self, total):
+        self.init_time = time.time()
+        self.total = total
+        self.total_done = 0
+        self._last_tick = 0
+
+    def tick(self, count):
+        """
+        Tick the timer, assuming that <b>count</b> 'things'
+        have been done.
+        """
+        self.total_done += count
+        self._last_tick = time.time()
+
+    def eta(self):
+        """
+        Return the expected finish time in seconds.
+        """
+        try:
+            avg = self.total_done / (self._last_tick - self.init_time)
+            eta = int((self.total - self.total_done) / avg)
+        except ZeroDivisionError:
+            eta = -1
+        return eta
+
+    def elapsed(self):
+        return time.time() - self.init_time
+
+
+class Color:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[34m'
+    OKGREEN = '\033[32m'
+    FAIL = '\033[91m'
+    NEWL = "\r\x1b[K"
+    ENDC = '\033[0m'
+
+    @classmethod
+    def fail(self, text):
+        return Color.FAIL + text + Color.ENDC
+
+    @classmethod
+    def wrap(self, text, color):
+      return color + str(text) + Color.ENDC
+
+    @classmethod
+    def wrapformat(self, fmt, color, *args, **kwargs):
+      return color + fmt.format(*args, **kwargs) + Color.ENDC
