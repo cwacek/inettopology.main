@@ -5,7 +5,7 @@ distribute_setup.use_setuptools()
 from setuptools import setup, find_packages
 
 setup(
-    name="inettopology-asmap",
+    name="inettopology-main",
     version="0.1",
     packages=find_packages(),
 
@@ -15,9 +15,12 @@ setup(
                      ],
 
     entry_points={
-                  'console_scripts': [
-                    'inettopology = inettopology:run'
-                  ]
+      'inettopology.modules': [
+        'asmap = inettopology.asmap.cmdline'
+      ],
+      'console_scripts': [
+        'inettopology = inettopology:run'
+      ]
     },
 
     author="Chris Wacek",

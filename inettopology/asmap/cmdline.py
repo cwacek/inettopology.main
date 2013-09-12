@@ -10,8 +10,28 @@ import inettopology.asmap.extra
 
 
 def run():
-
   parser = argparse.ArgumentParser()
+  subp = parser.add_subparsers(help="Commands")
+
+  add_parsers(subp)
+
+  args = parser.parse_args()
+  if args.verbose > 0:
+    logging.basicConfig(level=logging.DEBUG)
+    logging.getLogger().setLevel(logging.DEBUG)
+  else:
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger().setLevel(logging.INFO)
+
+  args.func(args)
+
+def add_parsers(subp, parents=[]):
+  """ Add all the relevant parsers to :subp:
+
+  Additionally add the list of parsers in
+  :parents: as parent parsers.
+  """
+
   gen_p = argparse.ArgumentParser(add_help=False)
   gen_p.add_argument("--redis", action=structures.RedisArgAction,
                      default={'host': 'localhost', 'port': 6379, 'db': 0},
@@ -21,15 +41,14 @@ def run():
   gen_p.add_argument("-v", "--verbose", action='count', default=0)
 
   # Loading data
-  subp = parser.add_subparsers(help="Commands")
-
-  inettopology.asmap.data.add_cmdline_args(subp, [gen_p])
-  inettopology.asmap.infer.add_cmdline_args(subp, [gen_p])
-  inettopology.asmap.extra.load_cmdline_args(subp, [gen_p])
+  parents.append(gen_p)
+  inettopology.asmap.data.add_cmdline_args(subp, parents)
+  inettopology.asmap.infer.add_cmdline_args(subp, parents)
+  inettopology.asmap.extra.load_cmdline_args(subp, parents)
 
   # Database cleanup
   clean_parser = subp.add_parser("clean", help="Clean the graph data",
-                                 parents=[gen_p])
+                                 parents=parents)
   clean_parser.add_argument("--base_links",
                             help="Clean base links from CAIDA",
                             action="store_true")
@@ -42,20 +61,14 @@ def run():
   clean_parser.set_defaults(func=inettopology.asmap.core.clean)
 
   list_parser = subp.add_parser("list", help="List miscellaneous information",
-                                parents=[gen_p])
+                                parents=parents)
   list_parser.add_argument("--tags", help="List the RIB tags that exist",
                            action="store_true")
   list_parser.set_defaults(func=inettopology.asmap.core.list_misc)
 
-  args = parser.parse_args()
-  if args.verbose > 0:
-    logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger().setLevel(logging.DEBUG)
-  else:
-    logging.basicConfig(level=logging.INFO)
-    logging.getLogger().setLevel(logging.INFO)
 
-  args.func(args)
+# add_parsers is the entrypoint load function for this module
+__module_load__ = add_parsers
 
 if __name__ == '__main__':
   run()
