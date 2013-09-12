@@ -13,7 +13,7 @@ def run():
   parser = argparse.ArgumentParser()
   subp = parser.add_subparsers(help="Commands")
 
-  add_parsers(subp)
+  __argparse__(subp)
 
   args = parser.parse_args()
   if args.verbose > 0:
@@ -25,7 +25,8 @@ def run():
 
   args.func(args)
 
-def add_parsers(subp, parents=[]):
+
+def __argparse__(subp, parents=[]):
   """ Add all the relevant parsers to :subp:
 
   Additionally add the list of parsers in
@@ -64,10 +65,6 @@ def add_parsers(subp, parents=[]):
   list_parser.add_argument("--tags", help="List the RIB tags that exist",
                            action="store_true")
   list_parser.set_defaults(func=inettopology.asmap.core.list_misc)
-
-
-# add_parsers is the entrypoint load function for this module
-__module_load__ = add_parsers
 
 if __name__ == '__main__':
   run()
