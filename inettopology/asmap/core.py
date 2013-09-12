@@ -2,7 +2,7 @@ import redis
 import logging
 
 from inettopology.asmap import DBKEYS as dbkeys
-import util.structures as redis_structures
+import inettopology.util.structures as redis_structures
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger()

@@ -1,11 +1,11 @@
 import argparse
 import logging
 
-import inettopology.asmap.util
+import inettopology.util
+import inettopology.util.structures as structures
 import inettopology.asmap.core
 import inettopology.asmap.data
 import inettopology.asmap.infer
-import inettopology.asmap.util.structures as structures
 import inettopology.asmap.extra
 
 
@@ -31,7 +31,6 @@ def add_parsers(subp, parents=[]):
   Additionally add the list of parsers in
   :parents: as parent parsers.
   """
-
   gen_p = argparse.ArgumentParser(add_help=False)
   gen_p.add_argument("--redis", action=structures.RedisArgAction,
                      default={'host': 'localhost', 'port': 6379, 'db': 0},

@@ -8,8 +8,8 @@ import logging
 log = logging.getLogger(__name__)
 
 from inettopology.asmap import DBKEYS
-import inettopology.asmap.util as utils
-import inettopology.asmap.util.structures as redis_structures
+import inettopology.util as utils
+import inettopology.util.structures as redis_structures
 
 load_help = """
 Load data from datafiles into the database.

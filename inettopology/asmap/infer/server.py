@@ -10,8 +10,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 from inettopology import SilentExit
-import inettopology.asmap.util as utils
-import inettopology.asmap.util.structures as redis_structures
+import inettopology.util as utils
+import inettopology.util.structures as redis_structures
 
 import gevent
 import gevent.socket

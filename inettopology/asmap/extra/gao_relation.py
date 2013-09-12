@@ -1,6 +1,6 @@
 
-import inettopology.asmap.util.structures as redis_structures
-import inettopology.asmap.util as utils
+import inettopology.util.structures as redis_structures
+import inettopology.util as utils
 from inettopology.asmap import DBKEYS
 
 import json
