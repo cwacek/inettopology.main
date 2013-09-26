@@ -447,7 +447,11 @@ class RedisMutex:
         self._r.brpop('mutex:%s' % self._name, timeout=0)
         self.locked_by_us = True
 
-    def release(self):
+    def release(self, force=False):
+        if not force and not self.locked_by_us:
+          log.warn("Tried to release mutex we don't hold.")
+          return
+
         self._r.rpush('mutex:%s' % self._name, 1)
         self.locked_by_us = False
 
