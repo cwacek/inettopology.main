@@ -6,15 +6,15 @@ class singleton(object):
   def __init__(self, decorated):
     self._decorated = decorated
 
-  def Instance(self):
+  def Instance(self, *args, **kwargs):
     try:
       return self._instance
     except AttributeError:
-      self._instance = self._decorated()
+      self._instance = self._decorated(*args, **kwargs)
       return self._instance
 
-  def __call__(self):
-    return self.Instance()()
+  def __call__(self, *args, **kwargs):
+    return self.Instance(*args, **kwargs)()
     #raise TypeError("Singletons must be accessed through `Instance()`.")
 
   def __instancecheck__(self, inst):
