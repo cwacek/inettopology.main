@@ -38,8 +38,6 @@ def __argparse__(subp, parents=[]):
                      help="Redis connection info for router server "
                           "(default: 'localhost:6379:0')")
 
-  gen_p.add_argument("-v", "--verbose", action='count', default=0)
-
   # Loading data
   parents.append(gen_p)
   inettopology.asmap.data.add_cmdline_args(subp, parents)
