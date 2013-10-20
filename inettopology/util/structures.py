@@ -444,6 +444,9 @@ class RedisMutex:
           log.warn("Error: deadlock in mutex acquire")
           raise Exception("Tried to acquire mutex we already hold")
 
+        if self.is_locked():
+          log.info("Waiting to acquire mutex {0}".format(self._name))
+
         self._r.brpop('mutex:%s' % self._name, timeout=0)
         self.locked_by_us = True
 
