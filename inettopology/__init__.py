@@ -33,4 +33,7 @@ def run():
     logging.basicConfig(level=logging.INFO)
     logging.getLogger().setLevel(logging.INFO)
 
-  args.func(args)
+  try:
+    args.func(args)
+  except SilentExit:
+    return
