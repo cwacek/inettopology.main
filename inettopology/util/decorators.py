@@ -1,5 +1,18 @@
 import functools
 import collections
+import time
+
+
+def timeit(method):
+  @functools.wraps(method)
+  def timed(*args, **kw):
+    ts = time.time()
+    result = method(*args, **kw)
+    te = time.time()
+
+    return (result, te - ts)
+
+  return timed
 
 
 class singleton(object):
