@@ -2,6 +2,9 @@ def _preprocess(args):
   import inettopology.asmap.extra.torps.process as processor
   processor.preprocess(args)
 
+def _analyze(args):
+  import inettopology.asmap.extra.torps.analyze_as_paths as analyzer
+  analyzer.main(args)
 
 def _postprocess(args):
   import inettopology.asmap.extra.torps.process as processor
@@ -86,3 +89,21 @@ def __argparse__(subp, parents):
 
   post_parser.add_argument("--output_dir")
   post_parser.set_defaults(func=_postprocess)
+
+  analyze_parser = subp.add_parser("torps.find_adversaries",
+                                help="Find adversaries who post threats to clients",
+                                parents=parents)
+  analyze_parser.add_argument("datafile",nargs="+",
+                      help="Datafiles containing procesed AS paths")
+  analyze_parser.add_argument("--supplement-paths",metavar="PATHFILE",
+                      help="A datafile containing additional paths to consider. The larger this file, the better.")
+  analyze_parser.add_argument("--meta-ixps", metavar="METAIXPFILE",
+                      help="Additionally consider meta-ixps from this file")
+
+  analyze_parser.add_argument("--output-prefix",
+                      help="The prefix to append to output datafiles. If not provided, will write a summary to stdout")
+
+  analyze_parser.add_argument("--pairs", help="Investigate pairs of ASes and IXPs",action="store_true")
+  analyze_parser.add_argument("--log-missing",help="Log missing paths to this file")
+
+  analyze_parser.set_defaults(func=_analyze)
