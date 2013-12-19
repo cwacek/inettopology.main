@@ -43,8 +43,8 @@ def mk_callback(ptype, endpoints, timestamp, sample):
       return
 
     path_ixps, path_mixps = ixp_data.identify_ixps(data['path'])
-    ixpline = " ".join(path_ixps) if path_ixps is not None else "-"
-    metaixpline = " ".join(path_mixps) if path_mixps is not None else "-"
+    ixpline = " ".join(path_ixps) if len(path_ixps) > 0 else "-"
+    metaixpline = " ".join(path_mixps) if len(path_mixps) > 0 else "-"
 
     print("@PATH|{0}::{1}|{2}|{3}|{4}".format(
           endpoints[0],

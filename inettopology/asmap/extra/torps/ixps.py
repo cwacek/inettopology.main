@@ -37,15 +37,18 @@ class IxpDataHandler(object):
     """Identify the IXP and MetaIXPs that occur along a given AS path
 
     :as_path: An iterable of AS numbers representing a path
-    :returns: A tuple of the form (ixps, metaixps), which are either sets or None
+    :returns: A tuple of the form (ixps, metaixps), which are sets
     """
+    if as_path is None:
+      return ([], [])
+
     path_ixps = set()
 
-    for pair in pairwise(as_path):
+    for pair in pairwise(as_path.split()):
       if pair in self.ixps:
         path_ixps |= self.ixps[pair]
 
-    path_metaixps = set([self.lookup(ixp) for ixp in path_ixps])
+    path_metaixps = set([self.lookup_metaixp(ixp) for ixp in path_ixps])
 
     return (path_ixps, path_metaixps)
 
