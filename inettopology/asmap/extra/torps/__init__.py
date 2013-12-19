@@ -92,11 +92,6 @@ def __argparse__(subp, parents):
                                 parents=parents)
 
   post_parser.add_argument("datafile", help="The datafile to process")
-  post_parser.add_argument("tag",
-                           help="The tag to search for the AS path within. "
-                                "Each set of AS paths contains a tag that "
-                                "identifies it. A valid tag needs to be "
-                                "provided to perform searches.")
 
   post_parser.add_argument("--samples",
                            help="The number of samples in the file",
@@ -117,6 +112,10 @@ def __argparse__(subp, parents):
                                 "for all of the clients we want to use",
                            required=True)
 
+  post_parser.add_argument("--tag",
+                           help="A short identification tag for this file",
+                           dest="filetag")
+
   post_parser.add_argument("--output_dir")
   post_parser.set_defaults(func=_postprocess)
 
@@ -132,10 +131,6 @@ def __argparse__(subp, parents):
       help="A datafile preprocesses AS paths. "
            "Any missing can be logged to a file.")
 
-  analyze_parser.add_argument("--meta-ixps", metavar="METAIXPFILE",
-                              help="Additionally consider meta-ixps "
-                                   "from this file")
-
   analyze_parser.add_argument("--output-prefix",
                               help="The prefix to append to output datafiles. "
                                    "If not provided, will write a "
@@ -144,6 +139,7 @@ def __argparse__(subp, parents):
   analyze_parser.add_argument("--pairs",
                               help="Investigate pairs of ASes and IXPs",
                               action="store_true")
+
   analyze_parser.add_argument("--log-missing",
                               help="Log missing paths to this file")
 
