@@ -393,7 +393,7 @@ class LogSink(multiprocessing.Process):
       tstfile = open(sinkfile, 'w')
     except:
       raise IOError("Can't write to sinkfile {0}".format(sinkfile))
-    finally:
+    else:
       tstfile.close()
 
   def shutdown(self):

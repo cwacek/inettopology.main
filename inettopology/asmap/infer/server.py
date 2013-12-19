@@ -195,18 +195,7 @@ def start_inference_service(args):
 
     tag_inferrers = dict()
 
-    if args.include_ixps:
-      ixpdata = dict()
-      try:
-        with open(args.include_ixps) as fin:
-          for line in fin:
-            ixp, as1, as2, confidence = line.strip().split(None, 3)
-            ixpdata[(as1, as2)] = (ixp, confidence)
-      except IOError, e:
-        raise Exception("Failed to open IXP datafile [{0}]".format(e))
-
-      log.info("loaded IXP Datafile with {0} IXP crossings"
-               .format(len(ixpdata)))
+    ixpdata = None
 
     if args.translate_ips:
       log.info("Loading GeoIP database.")

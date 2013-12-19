@@ -1,4 +1,3 @@
-import os
 import sys
 import itertools
 from datetime import datetime
@@ -11,6 +10,7 @@ EARLIEST_TS = None
 
 log = logging.getLogger(__name__)
 
+
 def confirm(prompt=None, resp=False):
     """prompts for yes or no response from the user. Returns True for yes and
     False for no.
@@ -19,10 +19,10 @@ def confirm(prompt=None, resp=False):
     user simply types ENTER.
 
     >>> confirm(prompt='Create Directory?', resp=True)
-    Create Directory? [y]|n: 
+    Create Directory? [y]|n:
     True
     >>> confirm(prompt='Create Directory?', resp=False)
-    Create Directory? [n]|y: 
+    Create Directory? [n]|y:
     False
     >>> confirm(prompt='Create Directory?', resp=False)
     Create Directory? [n]|y: y
@@ -50,10 +50,11 @@ def confirm(prompt=None, resp=False):
         if ans == 'n' or ans == 'N':
             return False
 
+
 class Stats(object):
   """Docstring for Stats """
 
-  def __init__(self,pairs = False):
+  def __init__(self, pairs=False):
     self.stream_ctr = 0
     self.streams_comp_as = 0
     self.streams_comp_ixp = 0
@@ -62,63 +63,71 @@ class Stats(object):
 
     self.ctr = {
         "as_pair": {
-          "both": dict()
+            "both": dict()
         },
         "ixp_pair": {
-          "both": dict()
+            "both": dict()
         },
         "as": {
-          "exit": dict(),
-          "guard": dict(),
-          "both": dict()
-          },
+            "exit": dict(),
+            "guard": dict(),
+            "both": dict()
+        },
         "ixp": {
-          "exit": dict(),
-          "guard": dict(),
-          "both": dict()
+            "exit": dict(),
+            "guard": dict(),
+            "both": dict()
         },
         "meta_ixp": {
-          "exit": dict(),
-          "guard": dict(),
-          "both": dict()
-          }
+            "exit": dict(),
+            "guard": dict(),
+            "both": dict()
         }
+    }
 
   def __str__(self):
     return "{{ 'streams': %d, 'as_comp': %d, 'ixp_comp': %d, 'both_comp': %d, 'stats': %s }}" % (
-              self.stream_ctr,
-              self.streams_comp_as,
-              self.streams_comp_ixp,
-              self.streams_comp_both,
-              self.ctr)
+           self.stream_ctr,
+           self.streams_comp_as,
+           self.streams_comp_ixp,
+           self.streams_comp_both,
+           self.ctr)
 
   def __repr__(self):
     return str(self)
 
   @staticmethod
-  def printdict(stream,d,lim,prepend="",translate=lambda x: x):
-    sorted_dict = sorted(d.iteritems(),key=operator.itemgetter(1),reverse=True)
-    sorted_dict = map(translate,sorted_dict)
-    for i in xrange(min(lim,len(sorted_dict)-1)):
-      stream.write("{0} {1} {2}\n".format(prepend,*sorted_dict[i]))
+  def printdict(stream, d, lim, prepend="", translate=lambda x: x):
+    sorted_dict = sorted(d.iteritems(),
+                         key=operator.itemgetter(1), reverse=True)
 
-  def print_stats(self,prefix):
+    sorted_dict = map(translate, sorted_dict)
+
+    for i in xrange(min(lim, len(sorted_dict) - 1)):
+      stream.write("{0} {1} {2}\n".format(prepend, *sorted_dict[i]))
+
+  def print_stats(self, prefix):
     global EARLIEST_TS
 
-    with open("{0}.globals.dat".format(prefix),'w') as fout:
-      fout.write("n_streams streams_comp_as streams_comp_ixp streams_comp_both\n")
-      fout.write("{0.stream_ctr} {0.streams_comp_as} {0.streams_comp_ixp} {0.streams_comp_both}\n"
-                  .format(self))
+    with open("{0}.globals.dat".format(prefix), 'w') as fout:
+      fout.write("n_streams streams_comp_as "
+                 "streams_comp_ixp streams_comp_both\n")
+      fout.write("{0.stream_ctr} {0.streams_comp_as} "
+                 "{0.streams_comp_ixp} {0.streams_comp_both}\n"
+                 .format(self))
 
-
-    for stattype,stats in self.ctr.iteritems():
-      with open("{0}.{1}.dat".format(prefix,stattype),'w') as fout:
+    for stattype, stats in self.ctr.iteritems():
+      with open("{0}.{1}.dat".format(prefix, stattype), 'w') as fout:
         columns = [key for key in stats]
         printed = set()
         if EARLIEST_TS is None:
-          fout.write("id {0}\n".format(" ".join(map(lambda x: "{0}".format(x), columns))))
+          fout.write("id {0}\n".format(
+                     " ".join(map(lambda x: "{0}".format(x), columns))))
         else:
-          fout.write("id {0}\n".format(" ".join(map(lambda x: "{0} {0}_obs".format(x), columns))))
+          fout.write("id {0}\n".format(
+                     " ".join(map(lambda x: "{0} {0}_obs".format(x),
+                                  columns))
+                     ))
 
         for column in columns:
           for stat_element in stats[column]:
@@ -132,28 +141,30 @@ class Stats(object):
                   if EARLIEST_TS is None:
                     row.append("{0}".format(elem['count']))
                   else:
-                    row.append("{0} {1}".format(elem['count'],
-                                                time.mktime(elem['first_obs'].timetuple())))
+                    row.append("{0} {1}".format(
+                        elem['count'],
+                        time.mktime(elem['first_obs'].timetuple())))
                 else:
                   if EARLIEST_TS is None:
                     row.append("0")
                   else:
                     row.append("0 -1")
               fout.write("{0} {1}\n".format(
-                          stat_element,
-                          " ".join(row)))
+                         stat_element,
+                         " ".join(row)))
 
-  def observe(self,obstype,objid,position,stream):
+  def observe(self, obstype, objid, position, stream):
     count = int(stream.count)
 
     if obstype not in self.ctr or objid is None:
       raise Exception
     if objid not in self.ctr[obstype][position]:
-      self.ctr[obstype][position][objid] = {'count': count, 'first_obs': stream.ts}
+      self.ctr[obstype][position][objid] = {'count': count,
+                                            'first_obs': stream.ts}
     else:
       self.ctr[obstype][position][objid]['count'] += count
 
-  def update(self, stream,meta_ixps):
+  def update(self, stream, meta_ixps):
     """Update stats based on the stream object passed to us
 
     :stream: a Stream object
@@ -169,44 +180,44 @@ class Stats(object):
     for AS in gpath.path & epath.path:
       as_comp = True
       self.streams_comp_as += stream.count
-      self.observe("as",AS,"both",stream)
+      self.observe("as", AS, "both", stream)
 
-    #for g_as,e_as in itertools.izip_longest(gpath.path,epath.path):
+    #for g_as, e_as in itertools.izip_longest(gpath.path, epath.path):
       #if g_as is not None:
-        #self.observe("as",g_as,"guard",stream)
+        #self.observe("as", g_as, "guard", stream)
       #if e_as is not None:
-        #self.observe("as",e_as,"exit",stream)
+        #self.observe("as", e_as, "exit", stream)
 
     for ixp in gpath.ixps & epath.ixps:
       ixp_comp = True
       self.streams_comp_ixp += stream.count
-      self.observe("ixp",ixp,"both",stream)
+      self.observe("ixp", ixp, "both", stream)
 
-    #for g_ixp,e_ixp in itertools.izip_longest(gpath.ixps,epath.ixps):
+    #for g_ixp, e_ixp in itertools.izip_longest(gpath.ixps, epath.ixps):
       #if g_ixp is not None:
-        #self.observe("ixp",g_ixp,"guard",stream)
+        #self.observe("ixp", g_ixp, "guard", stream)
       #if e_ixp is not None:
-        #self.observe("ixp",e_ixp,"exit",stream)
+        #self.observe("ixp", e_ixp, "exit", stream)
 
     if as_comp and ixp_comp:
       self.streams_comp_both += stream.count
 
     for ixp in gpath.metaixps & epath.metaixps:
-      self.observe("meta_ixp",ixp,"both",stream)
+      self.observe("meta_ixp", ixp, "both", stream)
 
-    #for g_ixp,e_ixp in itertools.izip_longest(gpath.metaixps,epath.metaixps):
-      #self.observe("meta_ixp",g_ixp,"guard",stream)
-      #self.observe("meta_ixp",e_ixp,"exit",stream)
+    #for g_ixp, e_ixp in itertools.izip_longest(gpath.metaixps, epath.metaixps):
+      #self.observe("meta_ixp", g_ixp, "guard", stream)
+      #self.observe("meta_ixp", e_ixp, "exit", stream)
 
     if self.pairs:
-      for pair in itertools.product(gpath.path,epath.path):
-        self.observe("as_pair","%s,%s" % (pair[0],pair[1]),"both",stream)
-      for pair in itertools.product(gpath.ixps,epath.ixps):
-        self.observe("ixp_pair","%s,%s" %(pair[0],pair[1]),"both",stream)
+      for pair in itertools.product(gpath.path, epath.path):
+        self.observe("as_pair", "%s, %s" % (pair[0], pair[1]), "both", stream)
+      for pair in itertools.product(gpath.ixps, epath.ixps):
+        self.observe("ixp_pair", "%s, %s" %(pair[0], pair[1]), "both", stream)
 
 
 class Stream(object):
-  def __init__(self,guard,exit,count,ts):
+  def __init__(self, guard, exit, count, ts):
     self.guard_link = guard
     self.guard_path = None
     self.exit_link = exit
@@ -214,7 +225,7 @@ class Stream(object):
     self.ts = ts
     self.count = int(count)
 
-  def update(self,endpoints,path):
+  def update(self, endpoints, path):
     if endpoints == self.guard_link:
       self.guard_path = path
     elif endpoints == self.exit_link:
@@ -228,13 +239,13 @@ class Stream(object):
   def __hash__(self):
     return hash("%s::%s" % (self.guard_link, self.exit_link))
 
-  def __eq__(self,other):
+  def __eq__(self, other):
     if self.__hash__() == other.__hash__():
       return True
     return False
 
 class Path(object):
-  def __init__(self,origin,dest,path,ixps,metaixps,rawdata):
+  def __init__(self, origin, dest, path, ixps, metaixps, rawdata):
     self.base_data = rawdata
     self.origin = origin
     self.dest = dest
@@ -252,17 +263,17 @@ class Path(object):
 
 
 class WaitList(dict):
-  def __init__(self,stats):
+  def __init__(self, stats):
     self.stats =stats
     self.waiting_streams = set()
 
-  def add(self,key,obj):
+  def add(self, key, obj):
     if key not in self:
       self[key] = list()
     self[key].append(obj)
     self.waiting_streams.add(obj)
 
-  def log_missing(self,stream):
+  def log_missing(self, stream):
     for key in self:
       stream.write("{0}\n".format(key))
 
@@ -287,7 +298,7 @@ class WaitList(dict):
                   eside,
                   eside/float(self.stats.stream_ctr))
 
-  def process(self,key,answer):
+  def process(self, key, answer):
     """
     Process all of the things waiting for this key by
     giving them :answer:.
@@ -295,14 +306,14 @@ class WaitList(dict):
     if key not in self:
       return
     for stream in self[key]:
-      if stream.update(key,answer):
+      if stream.update(key, answer):
         # if it returns true, we can update stats from it
         self.stats.update(stream)
       self.waiting_streams.remove(stream)
 
     del self[key]
 
-def process_datafile(fh,stats,args,paths):
+def process_datafile(fh, stats, args, paths):
   """@todo: Docstring for process_datafile
 :stats: The stats object to record information in
   :returns: @todo
@@ -316,9 +327,11 @@ def process_datafile(fh,stats,args,paths):
   waiting = WaitList(stats)
   meta_ixps = None
 
-  for i,line in enumerate(fh):
-    if (stats.stream_ctr > 0 and stats.stream_ctr % 1000 == 0) or len(paths) % 1000 == 0:
-      log.info("Read %d paths, %d streams, %i lines" % (len(paths),stats.stream_ctr, i))
+  for i, line in enumerate(fh):
+    if (stats.stream_ctr > 0
+            and stats.stream_ctr % 1000 == 0) or len(paths) % 1000 == 0:
+      log.info("Read %d paths, %d streams, %i lines"
+               % (len(paths), stats.stream_ctr, i))
     fields = line.strip().split("|")
     ltype = fields[0]
 
@@ -332,32 +345,35 @@ def process_datafile(fh,stats,args,paths):
         if not EARLIEST_TS or timestamp < EARLIEST_TS:
           EARLIEST_TS = timestamp
       else:
-        timestamp =None
+        timestamp = None
 
-      stream = Stream(guard_link,exit_link,count,timestamp)
+      stream = Stream(guard_link, exit_link, count, timestamp)
       try:
-        stream.update(guard_link,paths[guard_link])
+        stream.update(guard_link, paths[guard_link])
       except KeyError:
         # No path found yet
-        waiting.add(guard_link,stream)
+        waiting.add(guard_link, stream)
         pass
 
       try:
-        done = stream.update(exit_link,paths[exit_link])
+        done = stream.update(exit_link, paths[exit_link])
       except KeyError:
         # No path found yet
-        waiting.add(exit_link,stream)
+        waiting.add(exit_link, stream)
         pass
 
       if done:
-        stats.update(stream,meta_ixps)
-    elif ltype =="@PAIR_COUNTER":
+        stats.update(stream, meta_ixps)
+    elif ltype == "@PAIR_COUNTER":
       break
 
     elif ltype == "@PATH":
-      origin,dest = fields[1].split("::")
-      paths[fields[1]] = Path(origin,dest,fields[2],fields[3],fields[4] if len(fields) > 4 else None , line.strip())
-      waiting.process(fields[1],paths[fields[1]])
+      origin, dest = fields[1].split("::")
+      paths[fields[1]] = Path(origin, dest,
+                              fields[2], fields[3],
+                              fields[4] if len(fields) > 4 else None,
+                              line.strip())
+      waiting.process(fields[1], paths[fields[1]])
 
   if args.output_prefix:
     stats.print_stats(args.output_prefix)
@@ -366,7 +382,7 @@ def process_datafile(fh,stats,args,paths):
     stats.highlight(sys.stdout)
     #stats.printout(sys.stdout)
   if args.log_missing:
-    with open(args.log_missing,'w') as fout:
+    with open(args.log_missing, 'w') as fout:
       waiting.log_missing(fout)
 
 
@@ -387,37 +403,18 @@ def main(args):
         if fields[0] != '@PATH':
           log.debug("Skipping non-path line: {0}".format(line))
         else:
-          origin,dest = fields[1].split("::")
-          paths[fields[1]] = Path(origin,dest,fields[2],fields[3],fields[4],line.strip())
+          origin, dest = fields[1].split("::")
+          paths[fields[1]] = Path(origin, dest, fields[2],
+                                  fields[3], fields[4], line.strip())
 
   for datafile in args.datafile:
     f = None
     try:
       f = open(datafile)
     except IOError, e:
-      log.error("Failed to open data file '{0}' [{1}]".format(datafile,e))
+      log.error("Failed to open data file '{0}' [{1}]".format(datafile, e))
     else:
-      process_datafile(f,stats,args,paths)
+      process_datafile(f, stats, args, paths)
     finally:
       if f:
         f.close()
-
-if __name__ == '__main__':
-
-  parser = argparse.ArgumentParser()
-  parser.add_argument("datafile",nargs="+",
-                      help="Datafiles containing procesed AS paths")
-  parser.add_argument("--supplement-paths",metavar="PATHFILE",
-                      help="A datafile containing additional paths to consider")
-  parser.add_argument("--meta-ixps", metavar="METAIXPFILE",
-                      help="Additionally consider meta-ixps from this file")
-
-  parser.add_argument("--output-prefix",
-                      help="The prefix to append to output datafiles. If not provided, will write a summary to stdout")
-
-  parser.add_argument("--pairs", help="Investigate pairs of ASes and IXPs",action="store_true")
-  parser.add_argument("--log-missing",help="Log missing paths to this file")
-  args = parser.parse_args()
-  main(args)
-
-

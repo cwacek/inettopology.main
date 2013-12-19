@@ -6,13 +6,14 @@ import json
 import sys
 import random
 import logging
+import inettopology.asmap.extra.torps.ixps as ixps
 
 log = logging.getLogger(__name__)
 
 PROC_STARTED = 0
 PROC_FINISHED = 0
 
-""" Example Path Simulator output """
+""" Example Path Simulator output
 # Sample  Timestamp       Guard IP        Middle IP       Exit IP Destination IP
 # 0       1343865600      81.21.246.66    173.213.78.125  109.174.60.6    0
 # 1       1343865600      62.112.195.56   94.23.58.223    85.25.154.219   0
@@ -27,34 +28,89 @@ PROC_FINISHED = 0
 # 0       1343865600      176.31.118.165  50.115.125.53   85.17.177.73    74.125.131.105
 # 1       1343865600      62.112.195.56   81.218.219.122  82.208.89.58    74.125.131.105
 # 2       1343865600      199.48.147.36   131.130.199.36  108.174.195.211 74.125.131.105
+"""
+
+ixp_data = None
+
 
 def mk_callback(ptype, endpoints, timestamp, sample):
   def callback(data):
     global PROC_FINISHED
+    global ixp_data
+
     if data['type'] == "error":
       print("@ERROR|{0}:{1}|{2}".format(timestamp, sample, data['msg']))
       return
 
-    if len(data['ixps']) == 0:
-      ixpline =  "-"
-    else:
-      ixpline = " ".join(["{0}:({1}, {2}):{3}".format(ixp, ixpdata['as1'], ixpdata['as2'], ixpdata['confidence'].split()[0])
-                            for ixp, ixpdata in data['ixps'].iteritems()])
+    path_ixps, path_mixps = ixp_data.identify_ixps(data['path'])
+    ixpline = " ".join(path_ixps) if path_ixps is not None else "-"
+    metaixpline = " ".join(path_mixps) if path_mixps is not None else "-"
 
-    print("@PATH|{0}::{1}|{2}|{3}".format(
-                endpoints[0],
-                endpoints[1],
-                data['path'],
-                ixpline))
+    print("@PATH|{0}::{1}|{2}|{3}|{4}".format(
+          endpoints[0],
+          endpoints[1],
+          data['path'],
+          ixpline,
+          metaixpline))
 
     PROC_FINISHED += 1
 
   return callback
 
+
+def lookup_missing(args):
+  import inettopology.asmap.extra.torps.aspath as aspath
+  global ixp_data
+
+  try:
+    ixp_data = ixps.IxpDataHandler(args.ixps, args.meta_ixps)
+  except Exception as e:
+    log.error("Failed to load IXP data [{0}]".format(e))
+    sys.exit(1)
+
+  # Instantiate the query engine
+  log.info("Starting querier")
+  searcher = aspath.ASQuerier(log=log, max_outstanding=20)
+
+  try:
+    for fname in args.datafile:
+      with open(fname) as fin:
+        for i, line in enumerate(fin):
+          try:
+            e1, e2 = line.strip().split("::")
+          except Exception as e:
+            log.error("Error on line {0}: {1}".format(i, e))
+            continue
+          if e1.find(".") != -1:
+            # This is an ip-ip path
+            searcher.query_by_ip(args.tag, e1, e2,
+                                 mk_callback("Exit-Destination",
+                                             (e1, e2),
+                                             "N/A", "N/A"))
+          else:
+            searcher.query_mixed(args.tag, (e1, 'AS'), (e2, 'IP'),
+                                 mk_callback("Client-Guard",
+                                             (e1, e2),
+                                             "N/A", "N/A"))
+
+  except KeyboardInterrupt:
+    log.warn("Shutting down")
+    searcher.shutdown()
+    pass
+  searcher.shutdown()
+
+
 def preprocess(args):
   import inettopology.asmap.extra.torps.aspath as aspath
   global PROC_STARTED
   global PROC_FINISHED
+  global ixp_data
+
+  try:
+    ixp_data = ixps.IxpDataHandler(args.ixps, args.meta_ixps)
+  except Exception as e:
+    log.error("Failed to load IXP data [{0}]".format(e))
+    sys.exit(1)
 
   # Load the client ASes that we're going to use
   if args.client_as_file:
@@ -77,7 +133,7 @@ def preprocess(args):
 
   # Don't repeat lookups
   completed_lookups = dict()
-  skipped =0
+  skipped = 0
 
   if args.load_paths:
     with open(args.load_paths) as fin:
@@ -130,18 +186,18 @@ def preprocess(args):
 
           if (read % 1000 == 0):
             log.info("File {4}/{5} :: Read/PreviouslySeen/UniqueStreams/Paths: {0}/{1}/{2}/{3}"
-                        .format(read, skipped, len(unique_streams), len(completed_lookups), fctr, len(args.datafile)))
+                     .format(read, skipped, len(unique_streams), len(completed_lookups), fctr, len(args.datafile)))
 
           if (client_as, guard, exit, destination) not in unique_streams:
 
             if (client_as, guard) not in completed_lookups:
               searcher.query_mixed(args.tag, (client_as, 'AS'), (guard, 'IP'),
-                                  mk_callback("Client-Guard", (client_as, guard), timestamp, sample))
+                                   mk_callback("Client-Guard", (client_as, guard), timestamp, sample))
               log.debug("Querying for path {0}".format((client_as, guard)))
               completed_lookups[(client_as, guard)] = 1
             else:
               log.debug("Skipping lookup for path {0} because we've seen it before"
-                            .format((client_as, guard)))
+                        .format((client_as, guard)))
               completed_lookups[(client_as, guard)] += 1
 
             if (exit, destination) not in completed_lookups:
@@ -152,7 +208,7 @@ def preprocess(args):
             else:
               completed_lookups[(exit, destination)] += 1
               log.debug("Skipping lookup for path {0} because we've seen it before"
-                            .format((exit, destination)))
+                        .format((exit, destination)))
 
               unique_streams[(client_as, guard, exit, destination)] = {'ctr': 1, 'first_observation':timestamp}
 
@@ -162,7 +218,6 @@ def preprocess(args):
             completed_lookups[(exit, destination)] += 1
             skipped += 1
             log.debug("Skipping {0} because we've seen this stream before")
-
 
         PROC_STARTED += 2
 
@@ -174,12 +229,17 @@ def preprocess(args):
   finally:
     log.info("Printing streams")
     for stream in unique_streams:
-      print("@STREAM_CTR|{0}::{1}|{2}::{3}|{count}|{timestamp}".format(*stream,
-                                                                       count=unique_streams[stream]['ctr'],
-                                                                       timestamp=unique_streams[stream]['first_observation']))
-    print("@TOTAL_STREAMS|{0}".format(PROC_STARTED/2))
+      print("@STREAM_CTR|{0}::{1}|{2}::{3}|{count}|{timestamp}"
+            .format(*stream,
+                    count=unique_streams[stream]['ctr'],
+                    timestamp=unique_streams[stream]['first_observation']))
+
+    print("@TOTAL_STREAMS|{0}".format(PROC_STARTED / 2))
+
     for pairing in completed_lookups:
-      print("@PAIR_COUNTER|{0}|{1}".format(pairing, completed_lookups[pairing]))
+      print("@PAIR_COUNTER|{0}|{1}"
+            .format(pairing, completed_lookups[pairing]))
+
 
 class Path(object):
   def __init__(self, origin, dest, path, ixps):
@@ -189,8 +249,9 @@ class Path(object):
     if ixps == "-":
       self.ixps = frozenset([])
     else:
-      ixpids = [ixp.split(":")[0] for ixp in ixps.split() ]
+      ixpids = [ixp.split(":")[0] for ixp in ixps.split()]
       self.ixps = frozenset(ixpids)
+
 
 class NewPath(object):
   def __init__(self, origin, dest, path, ixps, metaixps):
@@ -200,33 +261,22 @@ class NewPath(object):
     if ixps == "-":
       self.ixps = frozenset([])
     else:
-      ixpids = [ixp for ixp in ixps.split() ]
+      ixpids = [ixp for ixp in ixps.split()]
       self.ixps = frozenset(ixpids)
     if metaixps == "-":
       self.metaixps = frozenset([])
     else:
-      ixpids = [ixp for ixp in metaixps.split() ]
+      ixpids = [ixp for ixp in metaixps.split()]
       self.metaixps = frozenset(ixpids)
 
-result=None
-PATH_WAITING=dict()
+result = None
+PATH_WAITING = dict()
+
+
 def analyze(args):
   global result
   global PATH_WAITING
   paths = dict()
-
-  log.debug("Reading Meta-IXPS")
-
-  if not args.new_path_format:
-    with open(args.meta_ixps) as fin:
-      meta_ixps = dict()
-      rev_meta_ixps = dict()
-      for line in fin:
-        ixp, meta, name = line.split()
-        meta_ixps[ixp] = "{0}_{1}".format(name, meta)
-        rev_meta_ixps["{0}_{1}".format(name, meta)] = ixp
-
-    log.info("Read {0} Meta-IXPs".format(len(meta_ixps)))
 
   with open(args.paths) as fin:
     for line in fin:
@@ -235,20 +285,15 @@ def analyze(args):
         log.debug("Skipping non-path line: {0}".format(line))
       else:
         origin, dest = fields[1].split("::")
-        if args.new_path_format:
-          paths[fields[1]] = NewPath(origin, dest, fields[2], fields[3], fields[4])
-        else:
-          paths[fields[1]] = Path(origin, dest, fields[2], fields[3])
+        paths[fields[1]] = NewPath(origin, dest, fields[2], fields[3], fields[4])
 
   log.info("Read {0} paths ".format(len(paths)))
 
   with open(args.badguys) as fin:
     badguys = json.load(fin)
 
-  BADGUY_TYPES = set()
-
   result = dict()
-  result['sample_globals'] =[x for x in itertools.repeat({"stream_count": 0, "fail_count": 0}, args.samples)]
+  result['sample_globals'] = [x for x in itertools.repeat({"stream_count": 0, "fail_count": 0}, args.samples)]
   for AS in badguys:
     result[AS] = dict()
 
@@ -307,20 +352,12 @@ def analyze(args):
                                                                #AS), 'w')
 
   i = 0
-  waiting_jobs = dict()
-  if not args.no_lookups:
-    import gevent
-    import inettopology.asmap.extra.torps.aspath as aspath
-    searcher = aspath.ASQuerier(log=log, max_outstanding=20)
   missing_paths = set()
-  first_timestamp = None
   data = open(args.datafile, "r", -1)
   timer = time.time()
   try:
     next(data)
     for line in data:
-      if not args.no_lookups:
-        gevent.sleep(0)
       i += 1
       if i % 10000 == 0:
         newtime = time.time()
@@ -332,7 +369,7 @@ def analyze(args):
         #first_timestamp = float(timestamp)
 
       timestamp = int(float(timestamp))
-      sample= int(sample)
+      sample = int(sample)
 
       result['sample_globals'][sample]['stream_count'] += 1
 
@@ -356,32 +393,8 @@ def analyze(args):
           guard_path = None
 
         if guard_path is None or exit_path is None:
-          if args.no_lookups:
-            result['sample_globals'][sample]['fail_count'] += 1
-            continue
-
-          else:
-            waiting_jobs[(client_AS, guard, exit, destination, sample, timestamp)] = [guard_path, exit_path]
-            if guard_path is None:
-              if (client_AS, guard) not in PATH_WAITING:
-                PATH_WAITING[(client_AS, guard)] = list()
-                PATH_WAITING[(client_AS, guard)].append((results, (client_AS, guard, exit, destination, sample, timestamp)))
-                searcher.query_mixed(args.tag, ( client_AS, "AS" ), ( guard , "IP"),
-                                     ad_hoc_callback(waiting_jobs, paths, results, 'guard', meta_ixps,
-                                                (client_AS, guard)))
-              else:
-                PATH_WAITING[(client_AS, guard)].append((results, (client_AS, guard, exit, destination, sample, timestamp)))
-            if exit_path is None:
-              if (exit, destination) not in PATH_WAITING:
-                PATH_WAITING[(exit, destination)] = list()
-                PATH_WAITING[(exit, destination)].append((results, (client_AS, guard, exit, destination, sample, timestamp)))
-                searcher.query_by_ip(args.tag, exit, destination,
-                                     ad_hoc_callback(waiting_jobs, paths, results, 'exit', meta_ixps,
-                                                (exit, destination)))
-              else:
-                PATH_WAITING[(exit, destination)].append((results, (client_AS, guard, exit, destination, sample, timestamp)))
-
-            continue
+          result['sample_globals'][sample]['fail_count'] += 1
+          continue
 
         for as_adversary in results['as_result']:
           check_safety(results, 'as_result', as_adversary, guard_path.path, exit_path.path, timestamp, sample)
@@ -393,13 +406,13 @@ def analyze(args):
           check_safety(results, 'metaixp_result', meta_ixp_adversary, guard_path.metaixps, exit_path.metaixps, timestamp, sample)
 
   except KeyboardInterrupt:
-    if not args.no_lookups:
-      searcher.shutdown()
     log.warn("Writing incomplete results\n")
     print_results(result, args)
+
   except Exception as e:
     traceback.print_exc()
     raise
+
   else:
     print_results(result, args)
 
@@ -408,7 +421,7 @@ def ad_hoc_callback(waiting_jobs, paths, results, pathtype, meta_ixps, pathid):
   def callback(data):
     global result
 
-    if data['type'] == "error" :
+    if data['type'] == "error":
       print("@ERROR|{1}|{0}".format(data['msg'], pathid))
       for results, wait_id in PATH_WAITING[pathid]:
         job = waiting_jobs[wait_id]
@@ -436,25 +449,27 @@ def ad_hoc_callback(waiting_jobs, paths, results, pathtype, meta_ixps, pathid):
                             for ixp, ixpdata in data['ixps'].iteritems()])
 
     log.info("Missing path found for {0}::{1}. Will notify {2} waiting on it".format(
-                pathid[0], pathid[1], len(PATH_WAITING[pathid])))
+             pathid[0], pathid[1], len(PATH_WAITING[pathid])))
     for results, wait_id in PATH_WAITING[pathid]:
       job = waiting_jobs[wait_id]
       timestamp = wait_id[5]
       sample = wait_id[4]
+
       if pathtype == "guard" :
         if job[0] is not None:
           log.info("Conflict")
           continue
         else:
           job[0] = Path(wait_id[0], wait_id[1], data['path'], ixpline)
-          paths["%s::%s"%(wait_id[0], wait_id[1])] = job[0]
+          paths["%s::%s" % (wait_id[0], wait_id[1])] = job[0]
+
       elif pathtype == "exit" :
         if job[1] is not None:
           log.info("Conflict")
           continue
         else:
           job[1] = Path(wait_id[2], wait_id[3], data['path'], ixpline)
-          paths["%s::%s"%(wait_id[2], wait_id[3])] = job[1]
+          paths["%s::%s" % (wait_id[2], wait_id[3])] = job[1]
 
       if not all(job):
         continue

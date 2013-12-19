@@ -15,7 +15,8 @@ def add_cmdline_args(subp, parents):
   infer_parser = subp.add_parser("infer",
                                  help="Infer AS level paths",
                                  parents=parents)
-  infer_parser.add_argument("--log", help="where to log activity to")
+  infer_parser.add_argument("--log", help="where to log activity to",
+                            required=True)
   infer_parser.add_argument("--tags",
                             help="The RIB tags to include above the base",
                             nargs='+', required=True)
@@ -25,9 +26,6 @@ def add_cmdline_args(subp, parents):
   infer_parser.add_argument("--inferrer_bin",
                             help="The binary to use for inference.",
                             default="./as_infer")
-  infer_parser.add_argument("--include-ixps",
-                            help="Include notes about IXPs from this datafile",
-                            metavar="IXP_DATAFILE")
   infer_parser.add_argument("--translate-ips",
                             help="Include the capability to translate IPs "
                                  "using a MaxMind GeoIP database",
